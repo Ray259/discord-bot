@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  content   String
+  metadata  Json?
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  userId    String
+  role      String   // 'user' | 'model'
+  parts     String   // Content
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

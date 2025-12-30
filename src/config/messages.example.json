@@ -1,0 +1,23 @@
+{
+  "systemInstruction": "INSERT YOUR SYSTEM INSTRUCTION HERE",
+  "prompts": {
+    "translation": "Translate this to {targetLang}: \"{text}\". match the tone.",
+    "correction": "Prompt for correcting french text: {text}"
+  },
+  "bot": {
+    "commands": {
+      "help": "Help message here...",
+      "resetStub": "Memory cleared message.",
+      "practice": "Practice mode start message."
+    },
+    "errors": {
+      "brainDead": "Generic error message.",
+      "commandError": "Command parse error.",
+      "rateLimit": "Rate limit message.",
+      "geminiError": "Provider specific error.",
+      "g4fDown": "Secondary provider error.",
+      "correctionUnable": "Unable to correct message.",
+      "connection": "Connection error message."
+    }
+  }
+}
