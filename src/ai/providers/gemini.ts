@@ -37,21 +37,21 @@ export class GeminiProvider implements AIProvider {
         try {
             // 1. Fetch Recent History (Short-term)
             const recentHistory = await PostgresProvider.getHistory(userId);
-            
+
             // 2. RAG Retrieval (Long-term context)
             const relevantDocs = await PostgresProvider.getContext(userId, userInput);
             const contextText = relevantDocs.map((d: any) => d.pageContent).join("\n---\n");
-            
+
             logger.info(`Using provider: Gemini (RAG Mode) | User: ${userId} | Context Docs: ${relevantDocs.length}`);
 
             // 3. Construct Prompt with Context
-            const augmentedPrompt = `Context from previous conversations:\n${contextText}\n\nUser Question: ${userInput}`;
+            const augmentedPrompt = `Context from previous conversations:\n${contextText}\n\nUser Input: ${userInput}`;
 
             const chatHistory = recentHistory.map((msg: any) => ({
                 role: msg.role === 'model' ? 'model' : 'user',
                 parts: [{ text: msg.parts }],
             }));
-            
+
             // 4. Start Chat with History
             const chat = this.model.startChat({
                 history: chatHistory,

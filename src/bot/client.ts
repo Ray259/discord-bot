@@ -1,5 +1,5 @@
 // src/bot/client.ts
-import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 import { registerEvents } from './events';
 import { commandData } from './commands';
 import { logger } from '../utils/logger';
@@ -20,6 +20,7 @@ export async function startBot() {
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent 
     ],
+    partials: [Partials.Channel]
   });
 
   // register event handlers

@@ -17,40 +17,48 @@ export const vectorStore = PrismaVectorStore.withModel<PrismaDocument>(prisma).c
   embeddings,
   {
     prisma: Prisma,
-    // LangChain expects the MODEL name, not the DB table name?
-    // Wait, the error `relation "Document" does not exist` comes from Postgres (42P01).
-    // This implies LangChain/Prisma is executing a raw query like `SELECT * FROM "Document"`.
-    // But my schema has `@@map("documents")`.
-    // If I pass `tableName: "Document"`, the library might be using that for raw queries.
-    tableName: "Document", 
+    tableName: "documents" as any, // Explicit table name mapped in schema
     vectorColumnName: "embedding",
     columns: {
       id: PrismaVectorStore.IdColumn,
       content: PrismaVectorStore.ContentColumn,
-      // metadata: PrismaVectorStore.JsonColumn, // Optional if we want metadata
     },
   }
 );
 
 export async function saveContext(content: string, metadata: Record<string, any> = {}) {
-  // PrismaVectorStore expects documents to match the model shape *if* strongly typed.
-  // We can relax the type check or provide dummy values.
-  // Actually, for `addDocuments`, it just needs to be compatible with internal logic.
-  // The issue is `withModel<PrismaDocument>` enforces strict types on the input docs.
-  // Let's remove the generic constraint on `withModel` for the creation PART, or cast.
-  await vectorStore.addDocuments([
-    new Document({ 
-        pageContent: content, 
-        metadata: {
-            ...metadata,
-            // These fields are managed by Prisma defaults/logic but TS might complain if missing in the input Doc type
-            // relative to the Model type. 
-            // Workaround: Any cast to bypass strict Model shape check for the input document
-        } 
-    }) as any, 
-  ]);
+  try {
+    // 1. Generate Embedding
+    const embedding = await embeddings.embedQuery(content);
+    const vectorString = `[${embedding.join(',')}]`;
+
+    // 2. Save Content & Embedding
+    // Using prisma.document and raw query for vector update to support pgvector
+    const doc = await prisma.document.create({
+        data: {
+            content,
+            metadata: metadata || {},
+        }
+    });
+
+    // 3. Update with Vector
+    const id = doc.id;
+    await prisma.$executeRaw`UPDATE "documents" SET embedding = ${vectorString}::vector WHERE id = ${id}`;
+    
+  } catch (error) {
+    console.error("Error saving context manually:", error);
+    throw error;
+  }
 }
 
-export async function getRelevantContext(query: string, k: number = 3) {
-    return await vectorStore.similaritySearch(query, k);
+export async function getRelevantContext(userId: string, query: string, k: number = 3) {
+    // Filter in-memory to ensure strict user isolation
+    const result = await vectorStore.similaritySearch(query, k * 5); 
+    
+    return result
+        .filter(doc => {
+            const docUserId = (doc.metadata as any).userId;
+            return docUserId === userId;
+        })
+        .slice(0, k);
 }

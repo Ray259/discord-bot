@@ -72,6 +72,8 @@ export function registerEvents(client: Client) {
     // 2. Mentioned in a server
     const isDM = message.channel.type === ChannelType.DM;
     const isMentioned = client.user && message.mentions.has(client.user);
+    
+
 
     if (isDM || isMentioned) {
         // Show typing indicator

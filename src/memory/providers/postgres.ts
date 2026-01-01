@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 export const PostgresProvider = {
     addMessage: async (userId: string, message: ChatMessage) => {
         try {
-            // 1. Save to relational DB (Short-term / Linear History)
+            // 1. Save to relational DB (History)
             await prisma.message.create({
                 data: {
                     userId,
@@ -18,8 +18,7 @@ export const PostgresProvider = {
                 }
             });
             
-            // 2. Save USER messages to Vector Store (Long-term / Semantic Search)
-            // Model messages are less critical for similarity search usually, but can be added.
+            // 2. Save USER messages to Vector Store (Search context)
             if (message.role === 'user') {
                 await saveContext(message.parts, { userId, role: message.role });
                 logger.info(`Saved message to Postgres/Vector for user ${userId}`);
@@ -51,6 +50,6 @@ export const PostgresProvider = {
 
     // RAG specific method
     getContext: async (userId: string, query: string) => {
-        return await getRelevantContext(query);
+        return await getRelevantContext(userId, query);
     }
 };
