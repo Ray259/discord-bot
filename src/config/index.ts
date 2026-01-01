@@ -13,10 +13,16 @@ const exampleConfigPath = path.join(process.cwd(), 'src', 'config', 'messages.ex
 let configData: any;
 
 try {
-    if (fs.existsSync(configPath)) {
+    if (process.env.MESSAGES_JSON) {
+        // Option 2: Load from Environment Variable
+        logger.info("Loading configuration from MESSAGES_JSON environment variable");
+        configData = JSON.parse(process.env.MESSAGES_JSON);
+    } else if (fs.existsSync(configPath)) {
+        // Standard: Load from local file (ignored in git)
         const raw = fs.readFileSync(configPath, 'utf8');
         configData = JSON.parse(raw);
     } else {
+        // Fallback: Load example file (committed in git)
         logger.warn("messages.json not found, falling back to messages.example.json");
         const raw = fs.readFileSync(exampleConfigPath, 'utf8');
         configData = JSON.parse(raw);

@@ -18,3 +18,13 @@ process.on('unhandledRejection', (reason, promise) => {
 
 logger.info('Starting Bot...');
 startBot();
+
+import http from 'http';
+// Keep-alive server for PaaS (Render, etc.)
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is alive');
+}).listen(port, () => {
+    logger.info(`Keep-alive server listening on port ${port}`);
+});
