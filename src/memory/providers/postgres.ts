@@ -7,37 +7,30 @@ const prisma = new PrismaClient();
 
 // This replaces the old in-memory map
 export const PostgresProvider = {
-    addMessage: async (userId: string, message: ChatMessage) => {
+    addMessage: async (userId: string, contextId: string, message: ChatMessage) => {
         try {
-            // 1. Save to relational DB (History)
             await prisma.message.create({
                 data: {
                     userId,
+                    contextId,
                     role: message.role,
                     parts: message.parts
                 }
             });
-            
-            // 2. Save USER messages to Vector Store (Search context)
-            if (message.role === 'user') {
-                await saveContext(message.parts, { userId, role: message.role });
-                logger.info(`Saved message to Postgres/Vector for user ${userId}`);
-            }
+            logger.info(`Message saved for context ${contextId}`);
         } catch (error) {
             logger.error('Error in PostgresProvider.addMessage', error);
         }
     },
 
-    getHistory: async (userId: string): Promise<ChatMessage[]> => {
+    getHistory: async (contextId: string): Promise<ChatMessage[]> => {
         try {
-            // Fetch last 10 messages for immediate context
             const messages = await prisma.message.findMany({
-                where: { userId },
+                where: { contextId },
                 orderBy: { createdAt: 'desc' },
                 take: 10
             });
             
-            // Reverse to ascending order for LLM context
             return messages.reverse().map(m => ({
                 role: m.role as 'user' | 'model',
                 parts: m.parts
@@ -48,8 +41,16 @@ export const PostgresProvider = {
         }
     },
 
-    // RAG specific method
-    getContext: async (userId: string, query: string) => {
-        return await getRelevantContext(userId, query);
+    getContext: async (userId: string, contextId: string, query: string) => {
+        return await getRelevantContext(userId, contextId, query);
+    },
+
+    clearMemory: async (contextId: string) => {
+        try {
+            await prisma.message.deleteMany({ where: { contextId } });
+            logger.info(`Cleared history for context ${contextId}`);
+        } catch (error) {
+            logger.error('Error in PostgresProvider.clearMemory', error);
+        }
     }
 };

@@ -9,7 +9,7 @@ dotenv.config();
 const prisma = new PrismaClient();
 
 const embeddings = new GoogleGenerativeAIEmbeddings({
-  model: "text-embedding-004", // or embedding-001
+  model: "gemini-embedding-001", // Updated to supported model name
   apiKey: process.env.GEMINI_API_KEY,
 });
 
@@ -26,39 +26,50 @@ export const vectorStore = PrismaVectorStore.withModel<PrismaDocument>(prisma).c
   }
 );
 
-export async function saveContext(content: string, metadata: Record<string, any> = {}) {
+export async function saveContext(
+    content: string, 
+    userId: string | null, 
+    contextId: string | null, 
+    isPublic: boolean = false, 
+    metadata: Record<string, any> = {}
+) {
   try {
-    // 1. Generate Embedding
     const embedding = await embeddings.embedQuery(content);
     const vectorString = `[${embedding.join(',')}]`;
 
-    // 2. Save Content & Embedding
-    // Using prisma.document and raw query for vector update to support pgvector
     const doc = await prisma.document.create({
         data: {
             content,
-            metadata: metadata || {},
+            userId,
+            contextId,
+            isPublic,
+            metadata: { ...metadata, userId, contextId, isPublic },
         }
     });
 
-    // 3. Update with Vector
     const id = doc.id;
     await prisma.$executeRaw`UPDATE "documents" SET embedding = ${vectorString}::vector WHERE id = ${id}`;
     
   } catch (error) {
-    console.error("Error saving context manually:", error);
+    console.error("Error saving context:", error);
     throw error;
   }
 }
 
-export async function getRelevantContext(userId: string, query: string, k: number = 3) {
-    // Filter in-memory to ensure strict user isolation
+export async function getRelevantContext(userId: string, contextId: string, query: string, k: number = 3) {
+    // Perform similarity search
+    // We fetch a larger pool then manually filter to ensure strict privacy logic
     const result = await vectorStore.similaritySearch(query, k * 5); 
     
     return result
         .filter(doc => {
-            const docUserId = (doc.metadata as any).userId;
-            return docUserId === userId;
+            const m = doc.metadata as any;
+            // Isolation Logic:
+            // 1. Must match the current context (Server/DM)
+            if (m.contextId !== contextId) return false;
+            
+            // 2. Either it is PUBLIC or it belongs to the CURRENT user
+            return m.isPublic === true || m.userId === userId;
         })
         .slice(0, k);
 }

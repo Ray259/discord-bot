@@ -1,6 +1,6 @@
 import { Client, Events, Interaction, Message, ChannelType } from 'discord.js';
-import { getAIProvider } from '../ai/factory';
-import { userMemory } from '../memory/userMemory';
+import { getAIProvider, getBrain } from '../ai/factory';
+import { PostgresProvider } from '../memory/providers/postgres';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 
@@ -26,7 +26,8 @@ export function registerEvents(client: Client) {
             });
         }
         else if (commandName === 'resetmemory') {
-            userMemory.clearMemory(interaction.user.id);
+            const contextId = interaction.guildId || interaction.user.id;
+            await PostgresProvider.clearMemory(contextId);
             await interaction.reply({ content: config.bot.commands.resetStub, ephemeral: true });
         }
         else if (commandName === 'french') {
@@ -46,7 +47,8 @@ export function registerEvents(client: Client) {
                 .replace('{targetLang}', lang === 'fr' ? 'French' : 'English')
                 .replace('{text}', text || '');
             
-            const response = await ai.getChatResponse(interaction.user.id, prompt);
+            const contextId = interaction.guildId || interaction.user.id;
+            const response = await ai.getChatResponse(interaction.user.id, contextId, prompt);
             await interaction.editReply(response);
         }
         else if (commandName === 'practice') {
@@ -85,17 +87,22 @@ export function registerEvents(client: Client) {
             cleanText = message.content.replace(new RegExp(`<@!?${client.user.id}>`), '').trim();
         }
 
-        if (!cleanText) return; // Ignore empty mentions
+        // 1. Context ID: Guild ID for servers, User ID for DMs
+        const contextId = message.guildId || message.author.id;
+        const userId = message.author.id;
+        const channelType = message.channel.type === ChannelType.DM ? 'DM' : 'Guild';
 
-        const ai = getAIProvider();
+        logger.info(`[EVENT] Message received | User: ${userId} | Context: ${contextId} | Type: ${channelType}`);
+
+        // 2. Save USER message to history
+        await PostgresProvider.addMessage(userId, contextId, { role: 'user', parts: cleanText });
+
+        const brain = getBrain(userId, contextId);
 
         try {
-            const response = await ai.getChatResponse(message.author.id, cleanText);
-            
-            // In servers, maybe thread or reply? Let's reply.
-            await message.reply(response);
+            await brain.handleMessage(message, cleanText, contextId);
         } catch (error) {
-            logger.error("Error responding to message", error);
+            logger.error("Error executing brain logic", error);
             await message.reply(config.bot.errors.connection);
         }
     }

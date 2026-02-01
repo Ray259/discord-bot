@@ -14,7 +14,10 @@ model Document {
   id        String   @id @default(uuid())
   content   String
   metadata  Json?
-  embedding Unsupported("vector(768)")?
+  userId    String?  // Original author
+  contextId String?  // Guild ID or DM User ID
+  isPublic  Boolean  @default(false)
+  embedding Unsupported("vector(3072)")?
   createdAt DateTime @default(now())
 
   @@map("documents")
@@ -23,10 +26,11 @@ model Document {
 model Message {
   id        String   @id @default(uuid())
   userId    String
+  contextId String   // Guild ID or DM User ID
   role      String   // 'user' | 'model'
   parts     String   // Content
   createdAt DateTime @default(now())
 
-  @@index([userId, createdAt])
+  @@index([contextId, createdAt])
   @@map("messages")
 }

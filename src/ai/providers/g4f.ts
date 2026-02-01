@@ -1,9 +1,9 @@
-import { AIProvider } from '../types';
+import { AIProvider, BrainResponse } from '../types';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
 
 export class G4FProvider implements AIProvider {
-    
+
     constructor() {
         logger.info("Initializing G4FProvider (Python Adapter Mode)");
     }
@@ -15,7 +15,7 @@ export class G4FProvider implements AIProvider {
 
             // Adjust path to adapter if necessary based on where the bot is run
             const scriptPath = path.join(process.cwd(), 'g4f_adapter', 'adapter.py');
-            
+
             const pythonProcess = spawn('python3', [scriptPath, prompt]);
 
             let dataString = '';
@@ -39,8 +39,8 @@ export class G4FProvider implements AIProvider {
                     // For now, let's try to identify if the output contains the version check.
                     let cleanOutput = dataString;
                     if (cleanOutput.includes('---G4F_RESPONSE---')) {
-                         const parts = cleanOutput.split('---G4F_RESPONSE---');
-                         cleanOutput = parts[1];
+                        const parts = cleanOutput.split('---G4F_RESPONSE---');
+                        cleanOutput = parts[1];
                     }
                     resolve(cleanOutput.trim());
                 }
@@ -52,11 +52,9 @@ export class G4FProvider implements AIProvider {
         });
     }
 
-    async getChatResponse(userId: string, userInput: string): Promise<string> {
+    async getChatResponse(userId: string, contextId: string, userInput: string): Promise<string> {
         try {
-            // NOTE: G4F usually doesn't hold state easily unless we pass comprehensive history.
-            // For now, we'll just send the user input (or prompt with limited history if needed).
-            logger.info(`Using provider: G4F for user ${userId}`);
+            logger.info(`Using provider: G4F for context ${contextId}`);
             return await this.callPythonAdapter(userInput);
         } catch (error) {
             logger.error("Error in getChatResponse G4F:", error);
@@ -71,6 +69,35 @@ export class G4FProvider implements AIProvider {
         } catch (e) {
             logger.error("Error in getDirectCorrection G4F", e);
             throw e;
+        }
+    }
+
+    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
+        try {
+            const prompt = `
+System: ${config.coordinatorInstruction}
+
+Context:
+${memoryContext}
+
+User Message: ${userInput}
+History: ${JSON.stringify(history)}
+
+Respond ONLY with a JSON object following the BrainResponse schema.
+`;
+            const responseText = await this.callPythonAdapter(prompt);
+            // Try to extract JSON if there's noise
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]) as BrainResponse;
+            }
+            return JSON.parse(responseText) as BrainResponse;
+        } catch (error) {
+            logger.error("Error in getBrainResponse G4F:", error);
+            return {
+                thought: "Failover in G4F brain.",
+                actions: [{ type: 'SPEAK', content: "Mmm, I'm thinking... give me a moment.", thought: "Fallback speak" }, { type: 'FINISH', thought: "Done" }]
+            };
         }
     }
 }
