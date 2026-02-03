@@ -2,6 +2,7 @@ import { AIProvider, BrainResponse } from '../types';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
 import { SYSTEM_INSTRUCTION } from '../promptBuilder';
+import { parseBrainResponse } from '../brainParser';
 
 export class OpenRouterProvider implements AIProvider {
     private apiKey: string;
@@ -79,11 +80,6 @@ Respond with JSON.
         });
 
         const text = data.choices[0].message.content;
-        const parsed = JSON.parse(text) as BrainResponse;
-        if (!Array.isArray(parsed.actions)) {
-            logger.warn(`OpenRouter BrainResponse missing 'actions'. Raw: ${text.substring(0, 200)}`);
-            parsed.actions = [];
-        }
-        return parsed;
+        return parseBrainResponse(text, `OpenRouter:${this.model}`);
     }
 }

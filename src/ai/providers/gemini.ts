@@ -4,6 +4,7 @@ import { PostgresProvider } from '../../memory/providers/postgres';
 import { logger } from '../../utils/logger';
 import { AIProvider, BrainResponse } from '../types';
 import { config } from '../../config';
+import { parseBrainResponse } from '../brainParser';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -103,12 +104,6 @@ Respond with JSON.
         });
 
         const text = result.response.text();
-        const parsed = JSON.parse(text) as BrainResponse;
-        // Normalize: ensure actions is always an array
-        if (!Array.isArray(parsed.actions)) {
-            logger.warn(`BrainResponse missing 'actions' array. Raw: ${text.substring(0, 200)}`);
-            parsed.actions = [];
-        }
-        return parsed;
+        return parseBrainResponse(text, `Gemini:${this.modelName}`);
     }
 }

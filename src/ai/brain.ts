@@ -1,5 +1,6 @@
 import { Message } from 'discord.js';
 import { AIProvider, BrainAction, ActionType } from './types';
+import { ManagedPoolProvider } from './providers/managedPool';
 import { PostgresProvider } from '../memory/providers/postgres';
 import { saveContext } from '../memory/vectorStore';
 import { logger } from '../utils/logger';
@@ -39,12 +40,10 @@ export class Brain {
                 
                 if ('sendTyping' in message.channel) await message.channel.sendTyping();
 
-                const response = await this.provider.getBrainResponse(
-                    this.userId, 
-                    userInput, 
-                    this.history, 
-                    this.memoryContext
-                );
+                const isFollowUp = loopCount > 1;
+                const response = isFollowUp && this.provider instanceof ManagedPoolProvider
+                    ? await this.provider.getBrainResponseFollowUp(this.userId, userInput, this.history, this.memoryContext)
+                    : await this.provider.getBrainResponse(this.userId, userInput, this.history, this.memoryContext);
 
                 const thought = response.thought || "Processing input...";
                 logger.info(`Brain Thought (Loop ${loopCount}): ${thought}`);
