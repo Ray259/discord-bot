@@ -42,8 +42,8 @@ export class Brain {
 
                 const isFollowUp = loopCount > 1;
                 const response = isFollowUp && this.provider instanceof ManagedPoolProvider
-                    ? await this.provider.getBrainResponseFollowUp(this.userId, userInput, this.history, this.memoryContext)
-                    : await this.provider.getBrainResponse(this.userId, userInput, this.history, this.memoryContext);
+                    ? await this.provider.getBrainResponseFollowUp(this.userId, userInput, this.history, this.memoryContext, isFollowUp)
+                    : await this.provider.getBrainResponse(this.userId, userInput, this.history, this.memoryContext, isFollowUp);
 
                 const thought = response.thought || "Processing input...";
                 logger.info(`Brain Thought (Loop ${loopCount}): ${thought}`);

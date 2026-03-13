@@ -56,9 +56,9 @@ export class OpenRouterProvider implements AIProvider {
         return data.choices[0].message.content;
     }
 
-    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
+    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string, isFollowUp: boolean = false): Promise<BrainResponse> {
         const systemPrompt = `${SYSTEM_INSTRUCTION}\n\n${config.coordinatorInstruction}`;
-        const userPrompt = `
+        let userPrompt = `
 Context from previous conversations:
 ${memoryContext}
 
@@ -69,6 +69,10 @@ ${JSON.stringify(history, null, 2)}
 
 Respond with JSON.
 `;
+
+        if (isFollowUp) {
+            userPrompt += `\n\n[RE-REFLECTION] You have already spoken once. Reflect on the history. Is there anything else you want to say or do? If not, FINISH.`;
+        }
 
         const data = await this.request('/chat/completions', {
             model: this.model,

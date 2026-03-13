@@ -72,9 +72,9 @@ export class G4FProvider implements AIProvider {
         }
     }
 
-    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
+    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string, isFollowUp: boolean = false): Promise<BrainResponse> {
         try {
-            const prompt = `
+            let prompt = `
 System: ${config.coordinatorInstruction}
 
 Context:
@@ -85,6 +85,10 @@ History: ${JSON.stringify(history)}
 
 Respond ONLY with a JSON object following the BrainResponse schema.
 `;
+            if (isFollowUp) {
+                prompt += `\n\n[RE-REFLECTION] You have already spoken once. Reflect on the history. Is there anything else you want to say or do? If not, FINISH.`;
+            }
+
             const responseText = await this.callPythonAdapter(prompt);
             // Try to extract JSON if there's noise
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);

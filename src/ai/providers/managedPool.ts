@@ -96,17 +96,17 @@ export class ManagedPoolProvider implements AIProvider {
         return this.executeWithPool(p => p.getDirectCorrection(text), 'getDirectCorrection');
     }
 
-    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
-        return this.executeWithPool(p => p.getBrainResponse(userId, userInput, history, memoryContext), 'getBrainResponse');
+    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string, isFollowUp: boolean = false): Promise<BrainResponse> {
+        return this.executeWithPool(p => p.getBrainResponse(userId, userInput, history, memoryContext, isFollowUp), 'getBrainResponse');
     }
 
     /**
      * Returns a version of getBrainResponse that skips pool fallback if the pinned provider fails.
      * Used by the Brain loop for follow-up iterations.
      */
-    async getBrainResponseFollowUp(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
+    async getBrainResponseFollowUp(userId: string, userInput: string, history: any[], memoryContext: string, isFollowUp: boolean = false): Promise<BrainResponse> {
         return this.executeWithPool(
-            p => p.getBrainResponse(userId, userInput, history, memoryContext),
+            p => p.getBrainResponse(userId, userInput, history, memoryContext, isFollowUp),
             'getBrainResponseFollowUp',
             true // skipFallback
         );

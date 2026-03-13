@@ -81,28 +81,35 @@ export class GeminiProvider implements AIProvider {
         return result.response.text();
     }
 
-    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string): Promise<BrainResponse> {
+    async getBrainResponse(userId: string, userInput: string, history: any[], memoryContext: string, isFollowUp: boolean = false): Promise<BrainResponse> {
         const systemPrompt = `${SYSTEM_INSTRUCTION}\n\n${config.coordinatorInstruction}`;
-        const userPrompt = `
-Context from previous conversations:
-${memoryContext}
+        
+        // Use native history if possible for better context
+        const chatHistory = history.map((msg: any) => ({
+            role: msg.role === 'model' ? 'model' : 'user',
+            parts: [{ text: msg.parts }],
+        }));
 
-User Message: ${userInput}
-
-Recent History:
-${JSON.stringify(history, null, 2)}
-
-Respond with JSON.
-`;
-
-        const result = await this.model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        const model = this.genAI.getGenerativeModel({
+            model: this.modelName,
             systemInstruction: systemPrompt,
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
         });
 
+        const chat = model.startChat({
+            history: chatHistory,
+            generationConfig: {
+                responseMimeType: "application/json",
+            },
+            safetySettings: this.safetySettings,
+        });
+
+        let instruction = `Context from previous conversations:\n${memoryContext}\n\nCurrent User Input: ${userInput}`;
+        
+        if (isFollowUp) {
+            instruction += `\n\n[RE-REFLECTION] You have already spoken once. Reflect on the history. Is there anything else you want to say or do (e.g. follow-up question, or another action)? If you are truly finished, return FINISH.`;
+        }
+
+        const result = await chat.sendMessage(instruction);
         const text = result.response.text();
         return parseBrainResponse(text, `Gemini:${this.modelName}`);
     }
