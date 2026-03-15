@@ -4,7 +4,16 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
+    "build:deploy": "npm ci --no-audit --fund=false && npm run py:install && npm run prisma:generate && npm run build",
+    "build:deploy:max": "npm ci --no-audit --fund=false --prefer-offline && npm run py:install:optional && npm run prisma:generate && npm run build",
+    "py:install": "python3 -m pip install --disable-pip-version-check -r g4f_adapter/requirements.txt",
+    "py:install:optional": "sh -c 'if [ \"${ENABLE_G4F:-1}\" = \"1\" ]; then npm run py:install; else echo \"Skipping Python deps (ENABLE_G4F!=1)\"; fi'",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push --skip-generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "release:deploy": "npm run prisma:migrate:deploy || npm run prisma:push",
     "start": "ts-node src/index.ts",
+    "start:prod": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
